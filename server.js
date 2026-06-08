@@ -138,13 +138,10 @@ function generateFull90Questions(language, direction) {
 function shuffle(array) {
   let currentIndex = array.length, randomIndex;
 
-  // Aralashmagan elementlar qolguniga qadar davom etadi
   while (currentIndex !== 0) {
-    // Qolgan elementlar ichidan tasodifiy indeks tanlanadi
     randomIndex = Math.floor(Math.random() * currentIndex);
     currentIndex--;
 
-    // Tanlangan element hozirgisi bilan o'rin almashadi
     [array[currentIndex], array[randomIndex]] = [
       array[randomIndex], array[currentIndex]
     ];
@@ -160,10 +157,33 @@ app.post("/api/generate-exam", (req, res) => {
   // 1. 90 ta to'liq savolni generatsiya qilamiz
   const fullExamData = generateFull90Questions(language, direction);
   
-  // 2. Savollarni to'liq tasodifiy tartibda aralashtirib tashlaymiz
+  // 2. Har bir savolning variantlarini xavfsiz aralashtiramiz
+  fullExamData.exam_session.questions.forEach((question) => {
+    // To'g'ri javob matnini aniqlab olamiz
+    const correctAnswerText = question.options.find(opt => opt.id === question.correct_answer).text;
+    
+    // ✅ TUZATILDI: Variantlar ob'ektlarining to'liq yangi nusxasini yaratib keyin shuffle qilamiz (Deep copy element-wise)
+    const deepCopiedOptions = question.options.map(opt => ({ ...opt }));
+    const shuffledOptions = shuffle(deepCopiedOptions);
+    
+    // Aralashgan variantlarga yangi A, B, C, D harflarini tarqatamiz
+    const letterIds = ["A", "B", "C", "D"];
+    shuffledOptions.forEach((opt, index) => {
+      opt.id = letterIds[index];
+    });
+    
+    // Yangilangan variantlarni savol ichiga saqlaymiz
+    question.options = shuffledOptions;
+    
+    // To'g'ri javob matni qaysi yangi harfga to'g'ri kelganini aniqlaymiz
+    const newCorrectOption = question.options.find(opt => opt.text === correctAnswerText);
+    question.correct_answer = newCorrectOption.id;
+  });
+  
+  // 3. Savollarning o'zini ham to'liq tasodifiy aralashtiramiz
   fullExamData.exam_session.questions = shuffle(fullExamData.exam_session.questions);
   
-  // 3. Aralashgan tayyor ma'lumotlarni frontendga yuboramiz
+  // 4. Tayyor ma'lumotlarni frontendga yuboramiz
   res.json(fullExamData);
 });
 
